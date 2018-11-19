@@ -55,6 +55,7 @@ function genSceneData(sceneId, suncgDir, objcategory, fileNamesAll)
 
         % Compress with RLE and save to binary file 
         % writeRLEfile(sceneVoxFilename, sceneVox,camPoseArr,voxOriginWorld)
+        disp(sceneVoxMatFilename);
         save(sceneVoxMatFilename,'sceneVox','camPoseArr');
     end
 end
