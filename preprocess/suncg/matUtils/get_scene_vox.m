@@ -1,4 +1,4 @@
-function [sceneVox] = get_scene_vox(pathToData,sceneId,floorId,roomId,extCam2World,objcategory)
+function [sceneVox, modelIds, modelBboxes] = get_scene_vox(pathToData,sceneId,floorId,roomId,extCam2World,objcategory)
 % Notes: grid is Z up while the The loaded houses are Y up
 % Adapted from the sscnet codebase - https://github.com/shurans/sscnet
 
@@ -60,6 +60,8 @@ gridPtsObjWorldInd = inWall(:)'&(gridPtsWorld(3,:)<ceilZ-voxUnit/2)&(gridPtsWorl
 [~,classRootId] = getobjclassSUNCG('wall',objcategory);
 gridPtsLabel(gridPtsObjWorldInd) = classRootId;     
 
+modelIds = {};
+modelBboxes = {};
 % Loop through each object and set voxels to class ID
 for objId = roomStruct.nodeIndices
     object_struct = floorStruct.nodes{objId+1};
@@ -72,7 +74,8 @@ for objId = roomStruct.nodeIndices
 
         % Compute object bbox in world coordinates
         objBbox = [object_struct.bbox.min([1,3,2])',object_struct.bbox.max([1,3,2])'];
-
+        modelIds = [modelIds, object_struct.modelId]
+        modelBboxes = [modelBboxes, objBbox];
         % Load segmentation of object in object coordinates
         filename= fullfile(pathToData,'object_vox/object_vox_data/',strrep(object_struct.modelId,'/','__'), [strrep(object_struct.modelId,'/','__'), '.binvox']);
         [voxels,scale,translate] = read_binvox(filename);

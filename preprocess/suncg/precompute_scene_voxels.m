@@ -13,6 +13,7 @@ function precompute_scene_voxels(min_id, max_id)
     addpath(fullfile(basedir, 'matUtils'));
     sceneIds = getFileNamesFromDirectory(fullfile(suncgDir, 'camera'),'types',{''});
     sceneIds = sceneIds(3:end);
+
     sceneIds = sort(sceneIds);
 
     if max_id == 0
@@ -48,14 +49,15 @@ function genSceneData(sceneId, suncgDir, objcategory, fileNamesAll)
         extCam2World = [[1 0 0; 0 0 1; 0 1 0]*extCam2World(1:3,1:3) extCam2World([1,3,2],4)];
 
         % generating scene voxels in camera view 
-        [sceneVox] = get_scene_vox(suncgDir,sceneId,cameraInfo(cameraId).floorId+1,cameraInfo(cameraId).roomId+1,extCam2World,objcategory);
+        [sceneVox, modelIds, modelBboxes] = get_scene_vox(suncgDir,sceneId,cameraInfo(cameraId).floorId+1,cameraInfo(cameraId).roomId+1,extCam2World,objcategory);
         camPoseArr = [extCam2World',[0;0;0;1]]; %'
         % camPoseArr = camPoseArr(:);
         sceneVox = (sceneVox ~= 0) & (sceneVox ~= 255);
 
         % Compress with RLE and save to binary file 
         % writeRLEfile(sceneVoxFilename, sceneVox,camPoseArr,voxOriginWorld)
-        disp(sceneVoxMatFilename);
-        save(sceneVoxMatFilename,'sceneVox','camPoseArr');
+        %disp(modelIds);
+        %disp(modelBboxes);
+        save(sceneVoxMatFilename,'sceneVox', 'modelIds', 'modelBboxes', 'camPoseArr');
     end
 end
