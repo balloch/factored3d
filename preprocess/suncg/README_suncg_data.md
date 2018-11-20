@@ -4,6 +4,12 @@
 Make sure the contents of the SUNCG dataset are in SUNCG_DIR. There should be 5 folders named 'house', 'room', 'object', 'texture' and 'object_vox' in SUNCG_DIR. We now download additional meta-data. Most of the scripts below are from the factored3d preprocessing readme, but I removed the ones that we definitely don't need.
 
 ```
+cd factored3d;
+mkdir external; cd external;
+# SSC-Net code (used for computing voxelization for the baseline)
+git clone https://github.com/shurans/sscnet ./sscnet
+cd ..
+
 cd SUNCG_DIR;
 
 # Download data splits
