@@ -1,3 +1,6 @@
+
+.vscode/
+.DS_Store
 *ipynb_checkpoints
 demo/data
 release_files

@@ -1,5 +1,18 @@
 # Downloading metadata and running the precompute_scene_voxels.m script
 
+### Getting it working with minimum data
+cd factored3d;
+mkdir external; cd external;
+Download https://drive.google.com/open?id=1vXGr5tA7VQpwkc0umOG6Ww2d3D_lH183 and unzip in external/suncgdir
+
+Make sure factored3d/external/suncgdir/scene_voxels is empty before running the following script:
+Run precompute_scene_voxels(1, 0);
+Run scripts/visualize.py
+
+
+
+
+
 ### SUNCG Dataset
 Make sure the contents of the SUNCG dataset are in SUNCG_DIR. There should be 5 folders named 'house', 'room', 'object', 'texture' and 'object_vox' in SUNCG_DIR. We now download additional meta-data. Most of the scripts below are from the factored3d preprocessing readme, but I removed the ones that we definitely don't need.
 

@@ -1,22 +1,25 @@
-function [sceneVox, modelIds, modelBboxes, objSegPts, transforms, gridPtsObjWorlds] = get_scene_vox(pathToData,sceneId,floorId,roomId,extCam2World,objcategory)
+function [sceneVox, modelIds, modelBboxes, segPts, transforms, gridPtsObjWorlds, roomBbox] = get_scene_vox(pathToData,sceneId,floorId,roomId,extCam2World,objcategory)
 % Notes: grid is Z up while the The loaded houses are Y up
 % Adapted from the sscnet codebase - https://github.com/shurans/sscnet
 
 volume_params;
 ignore_classes = {'people', 'plants'};
 % Compute voxel range in cam coordinates
+
+disp(extCam2World);
 voxOriginCam = - [voxSize(1)/2*voxUnit;voxSize(2)/2*voxUnit;0];
 [gridPtsCamX,gridPtsCamY,gridPtsCamZ] = ndgrid(voxOriginCam(1):voxUnit:(voxOriginCam(1)+(voxSize(1)-1)*voxUnit), ...
                                                voxOriginCam(2):voxUnit:(voxOriginCam(2)+(voxSize(2)-1)*voxUnit), ...
                                                voxOriginCam(3):voxUnit:(voxOriginCam(3)+(voxSize(3)-1)*voxUnit));
 gridPtsCam_init = [gridPtsCamX(:),gridPtsCamY(:),gridPtsCamZ(:)]'; %'
-
 % Compute voxel grid centres in world coordinates
 gridPtsWorld = bsxfun(@plus,extCam2World(1:3,1:3)*gridPtsCam_init, extCam2World(1:3,4));
 gridPtsWorldX = gridPtsWorld(1,:);
 gridPtsWorldY = gridPtsWorld(2,:);
 gridPtsWorldZ = gridPtsWorld(3,:);
+
 gridPtsLabel = zeros(1,size(gridPtsWorld,2));
+disp(size(gridPtsLabel));
 
 house = loadjson(fullfile(pathToData,'house', sceneId,'house.json'));
 roomStruct = house.levels{floorId}.nodes{roomId};
@@ -35,7 +38,8 @@ end
 floorZ = mean(floorObj.vertices(:,2));
 gridPtsObjWorldInd = inRoom(:)'&(abs(gridPtsWorld(3,:)-floorZ) <= voxUnit/2); %'
 [~,classRootId] = getobjclassSUNCG('floor',objcategory);
-gridPtsLabel(gridPtsObjWorldInd) = classRootId;  
+gridPtsLabel(gridPtsObjWorldInd) = classRootId;
+
 
 % find ceiling 
 ceilObj = read_wobj_safe([fullfile(pathToData,'room',sceneId,roomStruct.modelId) 'c.obj']);
@@ -64,6 +68,9 @@ modelIds = {};
 modelBboxes = {};
 transforms = {};
 gridPtsObjWorlds = {};
+segPts = {};
+%disp(roomStruct.bbox);
+roomBbox = roomStruct.bbox;
 % Loop through each object and set voxels to class ID
 for objId = roomStruct.nodeIndices
     object_struct = floorStruct.nodes{objId+1};
@@ -83,13 +90,14 @@ for objId = roomStruct.nodeIndices
         [x,y,z] = ind2sub(size(voxels),find(voxels(:)>0));   
         objSegPts = bsxfun(@plus,[x,y,z]*scale,translate'); %'
         
+        
         modelIds = [modelIds, object_struct.modelId];
         modelBboxes = [modelBboxes, objBbox];
         % Convert object to world coordinates
         extObj2World_yup = reshape(object_struct.transform,[4,4]);
         objSegPts = extObj2World_yup*[objSegPts(:,[1,3,2])';ones(1,size(x,1))]; %'
         objSegPts = objSegPts([1,3,2],:);
-
+        segPts = [segPts, objSegPts];
         % Get all grid points within the object bbox in world coordinates
         gridPtsObjWorldInd =      gridPtsWorld(1,:) >= objBbox(1,1) - voxUnit & gridPtsWorld(1,:) <= objBbox(1,2) + voxUnit & ...
                                   gridPtsWorld(2,:) >= objBbox(2,1) - voxUnit & gridPtsWorld(2,:) <= objBbox(2,2) + voxUnit & ...
@@ -114,17 +122,22 @@ for objId = roomStruct.nodeIndices
 end
 
 % Remove grid points not in field of view
-extWorld2Cam = inv([extCam2World;[0,0,0,1]]);
-gridPtsCam = extWorld2Cam(1:3,1:3)*gridPtsWorld + repmat(extWorld2Cam(1:3,4),1,size(gridPtsWorld,2));
-gridPtsPixX = gridPtsCam(1,:).*(camK(1,1))./gridPtsCam(3,:)+camK(1,3);
-gridPtsPixY = gridPtsCam(2,:).*(camK(2,2))./gridPtsCam(3,:)+camK(2,3);
-% invalidPixInd = (gridPtsPixX < 0 | gridPtsPixX >= im_w | gridPtsPixY < 0 | gridPtsPixY >= im_h | gridPtsCam(3,:) < 0);
-% gridPtsLabel(find(invalidPixInd)) = 0;
+%extWorld2Cam = inv([extCam2World;[0,0,0,1]]);
+%gridPtsCam = extWorld2Cam(1:3,1:3)*gridPtsWorld + repmat(extWorld2Cam(1:3,4),1,size(gridPtsWorld,2));
+%gridPtsPixX = gridPtsCam(1,:).*(camK(1,1))./gridPtsCam(3,:)+camK(1,3);
+%gridPtsPixY = gridPtsCam(2,:).*(camK(2,2))./gridPtsCam(3,:)+camK(2,3);
+%invalidPixInd = (gridPtsPixX < 0 | gridPtsPixX >= im_w | gridPtsPixY < 0 | gridPtsPixY >= im_h | gridPtsCam(3,:) < 0);
+%gridPtsLabel(find(invalidPixInd)) = 0;
 
 % Remove grid points not in the room
-% gridPtsLabel(~inRoom(:)&gridPtsLabel(:)==0) = 255;
+%gridPtsLabel(~inRoom(:)&gridPtsLabel(:)==0) = 255;
 
 % Save the volume
+%disp(size(gridPtsLabel));
 sceneVox = reshape(gridPtsLabel,voxSize'); %'
+idx = find(gridPtsLabel == 1);
+disp(size(idx));
+%disp(max(idx', [], 1));
+%disp(min(idx', [], 1));
 
 end
