@@ -64,7 +64,7 @@ def perturb_json(input_file_name):
             print('number of rooms = ', room_count)
             print('number of objects = ', object_count)
 
-    with open(input_file_name[:-5]+'pert'+input_file_name[-5:], 'w') as of:
+    with open(input_file_name[:-5]+'_pert'+input_file_name[-5:], 'w') as of:
         json.dump(house_dict, of, indent=4)
             
 
