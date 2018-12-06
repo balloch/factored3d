@@ -50,7 +50,7 @@ function genSceneData(sceneId, suncgDir, objcategory, fileNamesAll)
         extCam2World = [[1 0 0; 0 0 1; 0 1 0]*extCam2World(1:3,1:3) extCam2World([1,3,2],4)];
 
         % generating scene voxels in camera view 
-        [sceneVox, modelIds, modelBboxes, segPts, transforms, gridPtsObjWorlds, roomBbox] = get_scene_vox(suncgDir,sceneId,cameraInfo(cameraId).floorId+1,cameraInfo(cameraId).roomId+1,extCam2World,objcategory);
+        [sceneVox, modelIds, modelBboxes] = get_scene_vox(suncgDir,sceneId,cameraInfo(cameraId).floorId+1,cameraInfo(cameraId).roomId+1,extCam2World,objcategory);
         camPoseArr = [extCam2World',[0;0;0;1]]; %'
         % camPoseArr = camPoseArr(:);
         sceneVox = (sceneVox ~= 0) & (sceneVox ~= 255);
@@ -59,6 +59,6 @@ function genSceneData(sceneId, suncgDir, objcategory, fileNamesAll)
         % writeRLEfile(sceneVoxFilename, sceneVox,camPoseArr,voxOriginWorld)
         %disp(modelIds);
         %disp(modelBboxes);
-        save(sceneVoxMatFilename,'sceneVox', 'modelIds', 'modelBboxes', 'segPts', 'gridPtsObjWorlds', 'camPoseArr', 'roomBbox');
+        save(sceneVoxMatFilename,'sceneVox', 'modelIds', 'modelBboxes', 'camPoseArr');
     end
 end

@@ -1,143 +1,53 @@
 from scipy.io import loadmat
 import numpy as np
-from mayavi import mlab
 import pptk
+from mayavi import mlab
 import itertools
-from computeH import computeH
-import cv2
 
-mat2 = loadmat("../external/suncgdir/scene_voxels/0004d52d1aeeb8ae6de39d6bd993e992/000004_voxels.mat")
 
-print(mat2.keys())
-print(mat2['modelIds'].shape)
-print(mat2['modelBboxes'].shape)
+mat2 = loadmat("../external/suncgdir/scene_voxels/0004d52d1aeeb8ae6de39d6bd993e992/000007_voxels.mat")
 print(mat2['camPoseArr'])
-print(mat2['segPts'].shape)
-print(mat2.keys())
-roombbox = mat2['roomBbox'][0][0]
-min_box = roombbox[0].T
-max_box = roombbox[1].T
+original = mat2['camPoseArr'][:, 0:3].T
+print(original)
+voxSize = (128, 64, 128)
+voxUnit = .04
 
+voxCoords = -1*np.array([voxSize[0]/2*voxUnit, voxSize[1]/2*voxUnit, 0])
+grid = np.mgrid[voxCoords[0]:voxCoords[0]+voxSize[0]*voxUnit:voxUnit,
+        voxCoords[1]:voxCoords[1]+voxSize[1]*voxUnit:voxUnit,
+        voxCoords[2]:voxCoords[2]+voxSize[2]*voxUnit:voxUnit]
 
-one = np.array([min_box[0], min_box[2], min_box[1]])
-two = np.array([min_box[0], min_box[2], max_box[1]])
-three = np.array([min_box[0], max_box[2], min_box[1]])
-four = np.array([min_box[0], max_box[2], max_box[1]])
-five = np.array([max_box[0], min_box[2], min_box[1]])
-six = np.array([max_box[0], min_box[2], max_box[1]])
-seven = np.array([max_box[0], max_box[2], min_box[1]])
-eight = np.array([max_box[0], max_box[2], max_box[1]])
+mult = np.matmul(original[:, 0:3], grid.reshape((3, -1)))
 
-all_box_coords = np.array([one, two, three, four, five, six, seven, eight])
-all_box_coords = np.squeeze(all_box_coords, axis=2)
+added = np.add(mult, original[:, 3].reshape((3,1)))
+final = added.reshape(grid.shape)
+print(final.shape)
 
-#Assuming sceneVox shape is 128x64x128
-corresponding = np.array([[0, 0, 64], [0, 0, 0], [128, 0, 64], [128, 0, 0], [0, 128, 64], [0, 128, 0], [128, 128, 64], [128, 128, 0]]).astype(np.float)
+data = mat2['sceneVox']
 
-H = computeH(corresponding.T, all_box_coords.T)
+x, y, z = np.where(data == 1)
+X = final[0]
+Y = final[1]
+Z = final[2]
 
-new_coords = []
-#Add bounding box to vis
-for idx, c in enumerate(corresponding):
-    c = np.concatenate((c, np.array([1])), axis=0)
-    q = np.matmul(H, c.T)
-    q/=q[3]
-    #new_coords.append(q[0:3])
-    new_coords.append(corresponding[idx])
-    
-#printing points that correspond to eachother
-print(corresponding)
-print(all_box_coords)
+coords = []
+for idx, x_val in enumerate(x):
+    x_val = x[idx]
+    y_val = y[idx]
+    z_val = z[idx]
+    x_coord = X[x_val][y_val][z_val]
+    y_coord = Y[x_val][y_val][z_val]
+    z_coord = Z[x_val][y_val][z_val]
+    coord = np.array([x_coord, y_coord, z_coord])
+    coords.append(coord)
+coords = np.array(coords)
 
-data = mat2['sceneVox'].astype(np.float)
-xx, yy, zz = np.where(data == 1)
-coords = np.array([xx, yy, zz])
+mlab.points3d(*tuple(coords.T), color=(0, 1, 1))
 
-
-for coord in coords.T:
-    coord = np.array([coord[0], coord[2], coord[1]])
-    c = np.concatenate((coord, np.array([1])), axis=0)
-    q = np.matmul(H, c.T)
-    q/=q[3]
-    #new_coords.append(q[0:3])
-    #print(q[0:3])
-    new_coords.append(coord)
-new_coords = np.array(new_coords)
-
-
-mlab.points3d(*tuple(new_coords.T), color=(0, 1, 1))
-
-
-# The min and max of our bounding box.
-min_maxs = np.array([[0,0,64],[128,128,0]])
-new_minmaxs = []
-for minmax in min_maxs:
-    c = np.concatenate((minmax, np.array([1])), axis=0)
-    q = np.matmul(H, c.T)
-    q/=q[3]
-    new_minmaxs.append(q[0:3])
-    #new_minmaxs.append(minmax)
-new_minmaxs = np.array(new_minmaxs)
-
-# mlab.points3d(*tuple(new_minmaxs.T), color=(1,0,0))
-
-matrix = np.linalg.inv(H)
-# Transform all bounding boxes to be within 0,0,0, 128,128,64.
 for idx, bbox in enumerate(mat2['modelBboxes'][0]):
     new_bbox = []
     bbox = bbox.T
-    new_coords = np.concatenate((new_coords, bbox))
-    arr = np.array([x for x in itertools.product(*tuple(bbox.T))]).transpose()
-
-    arr1 = []
-    for point in arr.T:
-        c = np.concatenate((point, np.array([1])), axis=0)
-        #print(point.reshape((4,1)))
-        new_point = np.matmul(matrix, c.T)
-        new_point/=new_point[3]
-        arr1.append(new_point[0:3])
-    arr1 = np.array(arr1)
-    arr1 = arr1.T
-    
-    #Uncomment to visualize bboxes (arr1 are the transformed boxes)
-    #mlab.points3d(*tuple(arr), color=(np.random.random_sample(),np.random.random_sample(),np.random.random_sample()))
-    #mlab.points3d(*tuple(arr1), color=(np.random.random_sample(),np.random.random_sample(),np.random.random_sample()))
-#mlab.points3d([20],[20],[20], color=(np.random.random_sample(),np.random.random_sample(),np.random.random_sample()))
-#mlab.points3d([0],[0],[0], color=(1,0,0))
-
-
-
-#Visualize segpts on mlab
-arr1 = []
-arr = mat2['segPts'][0][8].T
-for point in arr:
-    c = np.concatenate((point, np.array([1])), axis=0)
-    new_point = np.matmul(matrix, c.T)
-    new_point/=new_point[3]
-    arr1.append(new_point[0:3])
-    #arr1.append(point)
-
-arr1 = np.array(arr1)
-arr1 = arr1.T
-mlab.points3d(*tuple(arr1), color=(1,0,0))
+    arr = np.array([x for x in itertools.product(*tuple(bbox.T))])
+    mlab.points3d(*tuple(arr.T), color=(np.random.random_sample(),np.random.random_sample(),np.random.random_sample()))
 
 mlab.show()
-
-
-#Visualize segpts on their own within pptk
-arr1 = []
-for i in range(mat2['segPts'][0].shape[0]):
-    arr = mat2['segPts'][0][i].T
-    for point in arr:
-        c = np.concatenate((point, np.array([1])), axis=0)
-        new_point = np.matmul(matrix, c.T)
-        new_point/=new_point[3]
-        #arr1.append(new_point[0:3])
-        arr1.append(point)
-
-arr1 = np.array(arr1)
-v = pptk.viewer(np.c_[arr1])
-colors = np.zeros((arr1.shape))
-colors[:, 1:] = 1
-v.attributes(colors)
-v.set(point_size=0.0005)

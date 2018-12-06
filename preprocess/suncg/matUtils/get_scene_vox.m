@@ -1,4 +1,4 @@
-function [sceneVox, modelIds, modelBboxes, segPts, transforms, gridPtsObjWorlds, roomBbox] = get_scene_vox(pathToData,sceneId,floorId,roomId,extCam2World,objcategory)
+function [sceneVox, modelIds, modelBboxes] = get_scene_vox(pathToData,sceneId,floorId,roomId,extCam2World,objcategory)
 % Notes: grid is Z up while the The loaded houses are Y up
 % Adapted from the sscnet codebase - https://github.com/shurans/sscnet
 
@@ -6,20 +6,38 @@ volume_params;
 ignore_classes = {'people', 'plants'};
 % Compute voxel range in cam coordinates
 
-disp(extCam2World);
+%Origin is set half the dimension size vox units away. (Splits half and
+%half before and after origin? aka -64*.04 to +64*.04 is range of X?)
 voxOriginCam = - [voxSize(1)/2*voxUnit;voxSize(2)/2*voxUnit;0];
-[gridPtsCamX,gridPtsCamY,gridPtsCamZ] = ndgrid(voxOriginCam(1):voxUnit:(voxOriginCam(1)+(voxSize(1)-1)*voxUnit), ...
+
+%So it looks like this will create 3 grids, first is -64*.04 -> +63*.04
+%with increments of .04. Likewise for the 2nd and 3rd.
+[gridPtsCamX,gridPtsCamY,gridPtsCamZ] = ndgrid(voxOriginCam(1):voxUnit:(voxOriginCam(1)+(voxSize(1)-1   )*voxUnit), ...
                                                voxOriginCam(2):voxUnit:(voxOriginCam(2)+(voxSize(2)-1)*voxUnit), ...
                                                voxOriginCam(3):voxUnit:(voxOriginCam(3)+(voxSize(3)-1)*voxUnit));
+
 gridPtsCam_init = [gridPtsCamX(:),gridPtsCamY(:),gridPtsCamZ(:)]'; %'
-% Compute voxel grid centres in world coordinates
+
+
+
+%Looks like the camera origin is at these coords in world coordinates: [41.9278, 40.0205, 1.5003]
+%Compute voxel grid centres in world coordinates
+
+% looks like we're putting every coordinate within the buckets of
+% gridPtsWorld. This is in world coordinates afterwards, I think. (For
+% example, X, Y, Z will all contain some value within the some range of the
+% origin listed above. (It rotates the init points which are based on the
+% vox units, and adds the translation)
+
+%So the problem is definitely the camera, because the origin of the camera
+%dictates the angle at which we construct the 128x64x128 grid.
 gridPtsWorld = bsxfun(@plus,extCam2World(1:3,1:3)*gridPtsCam_init, extCam2World(1:3,4));
 gridPtsWorldX = gridPtsWorld(1,:);
 gridPtsWorldY = gridPtsWorld(2,:);
 gridPtsWorldZ = gridPtsWorld(3,:);
 
+
 gridPtsLabel = zeros(1,size(gridPtsWorld,2));
-disp(size(gridPtsLabel));
 
 house = loadjson(fullfile(pathToData,'house', sceneId,'house.json'));
 roomStruct = house.levels{floorId}.nodes{roomId};
@@ -66,11 +84,6 @@ gridPtsLabel(gridPtsObjWorldInd) = classRootId;
 
 modelIds = {};
 modelBboxes = {};
-transforms = {};
-gridPtsObjWorlds = {};
-segPts = {};
-%disp(roomStruct.bbox);
-roomBbox = roomStruct.bbox;
 % Loop through each object and set voxels to class ID
 for objId = roomStruct.nodeIndices
     object_struct = floorStruct.nodes{objId+1};
@@ -97,7 +110,6 @@ for objId = roomStruct.nodeIndices
         extObj2World_yup = reshape(object_struct.transform,[4,4]);
         objSegPts = extObj2World_yup*[objSegPts(:,[1,3,2])';ones(1,size(x,1))]; %'
         objSegPts = objSegPts([1,3,2],:);
-        segPts = [segPts, objSegPts];
         % Get all grid points within the object bbox in world coordinates
         gridPtsObjWorldInd =      gridPtsWorld(1,:) >= objBbox(1,1) - voxUnit & gridPtsWorld(1,:) <= objBbox(1,2) + voxUnit & ...
                                   gridPtsWorld(2,:) >= objBbox(2,1) - voxUnit & gridPtsWorld(2,:) <= objBbox(2,2) + voxUnit & ...
@@ -133,11 +145,8 @@ end
 %gridPtsLabel(~inRoom(:)&gridPtsLabel(:)==0) = 255;
 
 % Save the volume
-%disp(size(gridPtsLabel));
 sceneVox = reshape(gridPtsLabel,voxSize'); %'
 idx = find(gridPtsLabel == 1);
-disp(size(idx));
-%disp(max(idx', [], 1));
-%disp(min(idx', [], 1));
+
 
 end
