@@ -1,0 +1,15 @@
+ 211,window                  13,
+ 212,window                  14,
+ 238,rug                     42,
+ 228,television              59,
+ 134,table_and_chair         60,
+ 276,curtain                 61,
+ 120,laptop                  71,
+ 120,laptop                  72,
+ 422,table_lamp              74,
+ 523,floor_lamp              79,
+ 523,floor_lamp              80,
+ 236,picture_frame           85,
+ 529,vase                    86,
+ 237,plant                   92
+
