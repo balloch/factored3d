@@ -90,19 +90,20 @@ def clean_json(input_file_name):
                 if node['modelId'] in person_modelIds:
                     for_deletion.append((idx_n,int(node['id'])))
             for node_idx in for_deletion:
-                for room in rooms: # TODO: can be faster with numpy binary mask
+                for room in rooms: # TODO: can be maybe faster with numpy binary mask
                     room['nodeIndices'][:] = [x for x in room['nodeIndices'] if x==node_idx[1]]
                 del level['nodes'][node_idx[0]] # UNITTEST: make sure this doesn't delete necessary stuff like rooms
             print("Removed %d nodes" %len(for_deletion))
             for_deletion = []
             rooms = []
+            #TODO order all rooms to show up first
         json_if.seek(0)
         json.dump(house_dict, json_if, indent=4)
         # json_if.truncate() #do not know if this is necessary
 
 '''
 Adds a 4-DoF perturbation to one object per room in a SUNCG house JSON file, checking for
-bounding box collisions, and ensuring realistic support
+bounding box collisions, and ensuring realistic support. Y-up
 
 Input: SUNCG house JSON file
 Return: JSON file with all perturbations, house_pert.json
@@ -113,20 +114,37 @@ def perturb_json(input_file_name):
         house_dict = json.load(json_if)
         for level in house_dict['levels']:
             #thought about doing this with polygons, too hard, see https://stackoverflow.com/questions/36399381/whats-the-fastest-way-of-checking-if-a-point-is-inside-a-polygon-in-python
-            rand_pert = np.random.rand(3,)
-            # pert_obj = np.random.randint(7,100)
+            # rand_pert = np.random.rand(3,)
             pert_obj = 59 #television, model Id 228, id 0_59 in room 5 in sample house
             room_count = 0 #TEST
             object_count = 0 #TEST
             for node in level['nodes']:
-                rooms = []
-                if node['type'] == 'Room':
+                rooms = [] # TODO i think there is a bug here
+                if 'nodeIndices' in node:  #node['type'] == 'Room': #room is more correct, but we don't care about rooms that don't have 'nodeIndices'
                     grid_shape = np.ceil((np.asarray(node['bbox']['max'])-np.asarray(node['bbox']['min']))[0::2]*100).astype(int)
                     rooms.append({'data':node, 'grid':np.empty(shape=grid_shape)})
                 elif node['type'] == 'Object':
-                    if int(node['id'][2:]) is pert_obj:
-                        old_min=np.asarray(node['bbox']['min'])
-                        old_max=np.asarray(node['bbox']['max'])
+                    # wrongly assume you see all of the rooms first. add to clean_json?
+                    for room in rooms:
+                        # Add grid collision, then support. this does not account for "good" support
+                        if int(node['id'][2:]) in room['data']['nodeIndices']: #this may need to be a string compare not an int compare
+                            obj_grid_ind_mins = np.floor((np.asarray(node['bbox']['min'])-np.asarray(room['data']['bbox']['min']))[0::2]*100).astype(int)
+                            obj_grid_ind_maxs = np.ceil((np.asarray(node['bbox']['max'])-np.asarray(room['data']['bbox']['min']))[0::2]*100).astype(int)
+                            obj_grid_ind_slice = [slice(obj_grid_ind_mins[0],obj_grid_ind_maxs[0]),slice(obj_grid_ind_mins[1],obj_grid_ind_maxs[1])]
+                            if node['modelId'] in support_modelIds:
+                                room['grid'][obj_grid_ind_slice][ node['bbox']['max'][1] > np.abs(room['grid'][obj_grid_ind_slice]) ] = node['bbox']['max'][1]
+                            else:
+                                room['grid'][obj_grid_ind_slice][ node['bbox']['max'][1] > np.abs(room['grid'][obj_grid_ind_slice]) ] = -1*node['bbox']['max'][1]
+                            if int(node['id'][2:]) is pert_obj:
+                                old_min=np.asarray(node['bbox']['min'])
+                                old_max=np.asarray(node['bbox']['max'])
+                                #rand_pert=np.random.rand(3,) #TODO should do this with quaternions?
+                                yaw = np.random.rand(1) # y (yaw) angle 
+                                transl = np.random.rand(3)
+
+
+                        
+                        
                         new_min = np.multiply(rand_pert,old_min)
                         new_max = old_max + (new_min-old_min)
                         node['bbox']['min']=list(new_min)
