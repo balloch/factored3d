@@ -134,15 +134,15 @@ for objId = roomStruct.nodeIndices
 end
 
 % Remove grid points not in field of view
-%extWorld2Cam = inv([extCam2World;[0,0,0,1]]);
-%gridPtsCam = extWorld2Cam(1:3,1:3)*gridPtsWorld + repmat(extWorld2Cam(1:3,4),1,size(gridPtsWorld,2));
-%gridPtsPixX = gridPtsCam(1,:).*(camK(1,1))./gridPtsCam(3,:)+camK(1,3);
-%gridPtsPixY = gridPtsCam(2,:).*(camK(2,2))./gridPtsCam(3,:)+camK(2,3);
-%invalidPixInd = (gridPtsPixX < 0 | gridPtsPixX >= im_w | gridPtsPixY < 0 | gridPtsPixY >= im_h | gridPtsCam(3,:) < 0);
-%gridPtsLabel(find(invalidPixInd)) = 0;
+extWorld2Cam = inv([extCam2World;[0,0,0,1]]);
+gridPtsCam = extWorld2Cam(1:3,1:3)*gridPtsWorld + repmat(extWorld2Cam(1:3,4),1,size(gridPtsWorld,2));
+gridPtsPixX = gridPtsCam(1,:).*(camK(1,1))./gridPtsCam(3,:)+camK(1,3);
+gridPtsPixY = gridPtsCam(2,:).*(camK(2,2))./gridPtsCam(3,:)+camK(2,3);
+invalidPixInd = (gridPtsPixX < 0 | gridPtsPixX >= im_w | gridPtsPixY < 0 | gridPtsPixY >= im_h | gridPtsCam(3,:) < 0);
+gridPtsLabel(find(invalidPixInd)) = 0;
 
 % Remove grid points not in the room
-%gridPtsLabel(~inRoom(:)&gridPtsLabel(:)==0) = 255;
+gridPtsLabel(~inRoom(:)&gridPtsLabel(:)==0) = 255;
 
 % Save the volume
 sceneVox = reshape(gridPtsLabel,voxSize'); %'

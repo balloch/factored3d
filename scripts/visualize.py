@@ -6,12 +6,14 @@ import itertools
 
 
 mat2 = loadmat("../external/suncgdir/scene_voxels/0004d52d1aeeb8ae6de39d6bd993e992/000007_voxels.mat")
+
 print(mat2['camPoseArr'])
 original = mat2['camPoseArr'][:, 0:3].T
 print(original)
-voxSize = (128, 64, 128)
-voxUnit = .04
-
+voxSize = tuple(mat2['voxSize'].reshape((3,)))
+voxUnit = np.squeeze(mat2['voxUnit'])
+print(voxSize)
+print(voxUnit)
 voxCoords = -1*np.array([voxSize[0]/2*voxUnit, voxSize[1]/2*voxUnit, 0])
 grid = np.mgrid[voxCoords[0]:voxCoords[0]+voxSize[0]*voxUnit:voxUnit,
         voxCoords[1]:voxCoords[1]+voxSize[1]*voxUnit:voxUnit,

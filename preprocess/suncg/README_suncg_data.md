@@ -9,10 +9,6 @@ Make sure factored3d/external/suncgdir/scene_voxels is empty before running the 
 Run precompute_scene_voxels(1, 0);
 Run scripts/visualize.py
 
-
-
-
-
 ### SUNCG Dataset
 Make sure the contents of the SUNCG dataset are in SUNCG_DIR. There should be 5 folders named 'house', 'room', 'object', 'texture' and 'object_vox' in SUNCG_DIR. We now download additional meta-data. Most of the scripts below are from the factored3d preprocessing readme, but I removed the ones that we definitely don't need.
 
@@ -21,24 +17,13 @@ cd factored3d;
 mkdir external; cd external;
 # SSC-Net code (used for computing voxelization for the baseline)
 git clone https://github.com/shurans/sscnet ./sscnet
+
+git clone https://github.com/shurans/SUNCGtoolbox
+
 cd ..
+
 
 cd SUNCG_DIR;
-
-# Download data splits
-mkdir splits
-cd splits
-wget https://people.eecs.berkeley.edu/~shubhtuls/cachedir/factored3d/suncg_split.pkl
-cd ..
-
-# Download layout data (suncg houses with objects removed)
-# we use this data to render the amodal depths
-wget https://people.eecs.berkeley.edu/~shubhtuls/cachedir/factored3d/layout.tar.gz
-tar -zxvf layout.tar.gz
-mv houseLayout layout
-
-# Download meta-data
-wget https://people.eecs.berkeley.edu/~shubhtuls/cachedir/factored3d/ModelCategoryMappingEdited.csv
 
 mkdir zipfiles; cd zipfiles;
 
@@ -53,3 +38,10 @@ wget http://pbrs.cs.princeton.edu/pbrs_release/data/data_goodlist_v2.txt
 Following this:
 Make sure your suncg_dir variable is properly set within globals.m
 Run precompute_scene_voxels(1, 0);
+
+
+### Rendering images from camera views using SUNCGToolbox
+This is the command to run from the directory house/[id]/. This will be put into a script that runs on all ids in the house directory.
+```
+../../../SUNCGtoolbox/gaps/bin/x86_64/scn2img house.json ../../camera/[id]/room_camera.txt ../../project_camera/[id]/ -categories ../../../SUNCGtoolbox/metadata/ModelCategoryMapping.csv -capture_color_images -capture_depth_images -capture_normal_images -capture_node_images -width 640 -height 480 -headlight
+```

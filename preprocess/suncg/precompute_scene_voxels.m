@@ -34,7 +34,7 @@ function genSceneData(sceneId, suncgDir, objcategory, fileNamesAll)
     cameraPoses = readCameraPose(camerafile);
     voxPath = fullfile(suncgDir, 'scene_voxels', sceneId);
     mkdirOptional(voxPath);
-
+    volume_params;
     for cameraId = 1:length(cameraInfo)
         if ~ismember(sprintf('%s/%06d', sceneId, cameraId-1), fileNamesAll)
             continue
@@ -59,6 +59,6 @@ function genSceneData(sceneId, suncgDir, objcategory, fileNamesAll)
         % writeRLEfile(sceneVoxFilename, sceneVox,camPoseArr,voxOriginWorld)
         %disp(modelIds);
         %disp(modelBboxes);
-        save(sceneVoxMatFilename,'sceneVox', 'modelIds', 'modelBboxes', 'camPoseArr');
+        save(sceneVoxMatFilename,'sceneVox', 'modelIds', 'modelBboxes', 'camPoseArr', 'voxSize', 'voxUnit');
     end
 end
