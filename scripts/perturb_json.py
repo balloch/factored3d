@@ -51,9 +51,29 @@ support_modelIds = ['40','41','75','77','78','104','105','107','108','109',
 
 perturbable_modelIds = []
 
-def check_collision(bbox1, collision_grid): #for if I project objects to ceiling. assumes cannot be under stuff
-    if (bbox2['min'][0] < bbox1['min'][0] < bbox2['max'][0]): # || ...
-        return True
+
+'''
+Checks new object bbox location in grid
+
+Inputs:
+    n_obj_grid_min: minima of the proposed new bounding box
+    n_obj_grid_max: maxima of the proposed new bounding box
+    room_grid: 2D grid where if obstacle the value is negative, and if support the heigh is the positive heigh of the support
+
+Returns:
+    height of support (world coordinates) if no collision, -1 otherwise
+'''
+def naive_collision_and_support(n_obj_grid_min,n_obj_grid_max, room_grid, support=0.5):
+    # Checking collision
+    area_sliced = room_grid[ slice(n_obj_grid_min[0],n_obj_grid_max[0]),slice(n_obj_grid_min[1],n_obj_grid_max[1]) ]
+    area_max=np.amax(area_sliced)
+    area_min=np.amin(area_sliced)
+    
+    if (area_min >= 0) and (area_max > np.abs(area_min)):
+        if area_sliced.size*support < area_sliced[area_sliced == area_max].size:
+            return area_max
+    else:
+        return -1
 
 def cuboid_collision(bbox1, bbox2): #Separating Axis test, https://stackoverflow.com/questions/5009526/overlapping-cubes
     pass
@@ -75,8 +95,11 @@ def check_real_support(bbox1, support_grid, IoU=.25):
 Removes unwanted entities and corrects errors in original JSON and rewrites it.
 Take note: this does not decrement the node id's as that would mess with the Rooms
 
-Input: SUNCG house JSON file
-Return: Error code, 0 for success
+Input:
+    input_file_name: SUNCG house JSON file
+        
+Return:
+    Error code, 0 for success
 '''
 def clean_json(input_file_name):
     with open(input_file_name, 'r+') as json_if:
@@ -105,10 +128,14 @@ def clean_json(input_file_name):
 Adds a 4-DoF perturbation to one object per room in a SUNCG house JSON file, checking for
 bounding box collisions, and ensuring realistic support. Y-up
 
-Input: SUNCG house JSON file
-Return: JSON file with all perturbations, house_pert.json
+Input: 
+    input_file_name: SUNCG house JSON file
+    grid_res: the meters divisor that sets the grid resolution (so 100=1cm)
+
+Return: 
+    JSON file with all perturbations, house_pert.json
 '''
-def perturb_json(input_file_name):
+def perturb_json(input_file_name, grid_res=100):
     house_dict={}
     with open(input_file_name, 'r') as json_if:
         house_dict = json.load(json_if)
@@ -121,15 +148,15 @@ def perturb_json(input_file_name):
             for node in level['nodes']:
                 rooms = [] # TODO i think there is a bug here
                 if 'nodeIndices' in node:  #node['type'] == 'Room': #room is more correct, but we don't care about rooms that don't have 'nodeIndices'
-                    grid_shape = np.ceil((np.asarray(node['bbox']['max'])-np.asarray(node['bbox']['min']))[0::2]*100).astype(int)
+                    grid_shape = np.ceil((np.asarray(node['bbox']['max'])-np.asarray(node['bbox']['min']))[0::2]*grid_res).astype(int)
                     rooms.append({'data':node, 'grid':np.empty(shape=grid_shape)})
                 elif node['type'] == 'Object':
                     # wrongly assume you see all of the rooms first. add to clean_json?
                     for room in rooms:
                         # Add grid collision, then support. this does not account for "good" support
                         if int(node['id'][2:]) in room['data']['nodeIndices']: #this may need to be a string compare not an int compare
-                            obj_grid_ind_mins = np.floor((np.asarray(node['bbox']['min'])-np.asarray(room['data']['bbox']['min']))[0::2]*100).astype(int)
-                            obj_grid_ind_maxs = np.ceil((np.asarray(node['bbox']['max'])-np.asarray(room['data']['bbox']['min']))[0::2]*100).astype(int)
+                            obj_grid_ind_mins = np.floor((np.asarray(node['bbox']['min'])-np.asarray(room['data']['bbox']['min']))[0::2]*grid_res).astype(int)
+                            obj_grid_ind_maxs = np.ceil((np.asarray(node['bbox']['max'])-np.asarray(room['data']['bbox']['min']))[0::2]*grid_res).astype(int)
                             obj_grid_ind_slice = [slice(obj_grid_ind_mins[0],obj_grid_ind_maxs[0]),slice(obj_grid_ind_mins[1],obj_grid_ind_maxs[1])]
                             if node['modelId'] in support_modelIds:
                                 room['grid'][obj_grid_ind_slice][ node['bbox']['max'][1] > np.abs(room['grid'][obj_grid_ind_slice]) ] = node['bbox']['max'][1]
@@ -139,11 +166,31 @@ def perturb_json(input_file_name):
                                 old_min=np.asarray(node['bbox']['min'])
                                 old_max=np.asarray(node['bbox']['max'])
                                 #rand_pert=np.random.rand(3,) #TODO should do this with quaternions?
-                                yaw = np.random.rand(1) # y (yaw) angle 
-                                transl = np.random.rand(3)
+                                height=-1
+                                obj_bbox_size = np.asarray(node['bbox']['max'])-np.asarray(node['bbox']['min'])
+                                height_offset = node['transform'][9]-node['bbox']['min'][1]
 
-
-                        
+                                while(height<0):
+                                    yaw = np.random.randint(4)/(2*np.pi) # y (yaw) angle 90 deg #TODO: not being applied to bbox currently
+                                    # transl = np.random.rand(3) #doing abs location instead. goes better with grid
+                                    #TODO: check that perturbation is sufficiently large
+                                    min_x = np.random.rand(room['data']['bbox']['min'][0],(room['data']['bbox']['max'][0]-(obj_bbox_size[0])))
+                                    min_z = np.random.rand(room['data']['bbox']['min'][2],(room['data']['bbox']['max'][2]-(obj_bbox_size[2])))
+                                    grid_min = np.floor(np.array([min_x-room['data']['bbox']['min'][0], min_z-room['data']['bbox']['min'][2]])*grid_res).astype(int)
+                                    grid_max = np.floor(np.array([min_x+obj_bbox_size[0]-room['data']['bbox']['min'][0], min_z+obj_bbox_size[2]-room['data']['bbox']['min'][2]])*grid_res).astype(int)
+                                    min_height = naive_collision_and_support([grid_min, grid_max],room['grid'])
+                                node['bbox']['min']=list([min_x,min_height,min_z])
+                                node['bbox']['max']=list(np.array([min_x,min_height,min_z])+obj_bbox_size)
+                                new_x = min_x + obj_bbox_size[0]/2
+                                new_z = min_z + obj_bbox_size[2]/2
+                                if np.isclose(np.pi/2,yaw): 
+                                    node['transform']=[0,0,-1,0,0,1,0,0,1,0,0,0,new_x,min_height+height_offset,new_z,1]
+                                elif np.isclose(np.pi,yaw):
+                                    node['transform']=[-1,0,0,0,0,1,0,0,0,0,-1,0,new_x,min_height+height_offset,new_z,1]
+                                elif np.isclose(3*np.pi/2,yaw): 
+                                    node['transform']=[0,0,1,0,0,1,0,0,-1,0,0,0,new_x,min_height+height_offset,new_z,1]
+                                else:
+                                    node['transform'][8:11]=[new_x,height,new_z]
                         
                         new_min = np.multiply(rand_pert,old_min)
                         new_max = old_max + (new_min-old_min)
